@@ -1,5 +1,5 @@
 const User = require('../model/AuctionLogin');
-const Otp = require('../model/Otp');
+const Otp = require('../model/otp');
 require('dotenv').config();
 const bodyParser = require('body-parser');
 const sgMail = require('@sendgrid/mail');
