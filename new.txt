@@ -1,0 +1,439 @@
+const Item = require('../model/Item');
+
+// Create a new auction item
+exports.createItem = async (req, res) => {
+  try {
+    console.log('Request body:', req.body);
+    // console.log('Uploaded file:', req.file);
+
+    const {
+      itemName,
+      startingBid,
+      reservePrice,
+      auctionDuration,
+      location,
+      features,
+      sellerName,
+      email,
+      phone,
+      description,
+      shippingInfo,
+      termsAndConditions,
+      category,
+      condition
+    } = req.body;
+
+    // Parse features if it's a string
+    let parsedFeatures = [];
+    if (features) {
+      try {
+        parsedFeatures = typeof features === 'string' ? JSON.parse(features) : features;
+      } catch (error) {
+        console.error('Error parsing features:', error);
+        parsedFeatures = [];
+      }
+    }
+
+    // Parse shippingInfo if it's a string
+    let parsedShippingInfo = {};
+    if (shippingInfo) {
+      try {
+        parsedShippingInfo = typeof shippingInfo === 'string' ? JSON.parse(shippingInfo) : shippingInfo;
+      } catch (error) {
+        console.error('Error parsing shippingInfo:', error);
+        parsedShippingInfo = {
+          shippingMethod: 'standard',
+          shippingCost: 0,
+          estimatedDelivery: '3-5 business days'
+        };
+      }
+    }
+
+    const item = new Item({
+      itemName,
+      startingBid,
+      reservePrice,
+      auctionDuration,
+      location,
+      features: parsedFeatures,
+      sellerName,
+      email,
+      phone,
+      description,
+      shippingInfo: parsedShippingInfo,
+      termsAndConditions,
+      category,
+      condition,
+      // image: req.file ? req.file.filename : null
+    });
+
+    const savedItem = await item.save();
+    res.status(201).json({
+      success: true,
+      message: "Auction created successfully",
+      item: savedItem
+    });
+  } catch (error) {
+    console.error('Error creating item:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// Get all auction items
+exports.getAllAuction = async (req, res) => {
+  try {
+    const items = await Item.find()
+      .sort({ createdAt: -1 });
+    res.status(200).json({ 
+      success: true,
+      message: 'Fetched all items',
+      items
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: err.message
+    });
+  }
+};
+
+// Get all approved auction items
+exports.getAllApproveItem = async (req, res) => {
+  try {
+    const items = await Item.find({ status: "approved" })
+      .sort({ createdAt: -1 });
+    res.status(200).json({ 
+      success: true,
+      message: 'Fetched all approved items',
+      items
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: err.message
+    });
+  }
+};
+
+// Get items by category
+exports.getItemsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const items = await Item.find({ 
+      category: category,
+      status: 'active'
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: `Fetched all items in category: ${category}`,
+      items
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching items by category',
+      error: error.message
+    });
+  }
+};
+
+// Get items by seller
+exports.getItemsBySeller = async (req, res) => {
+  try {
+    const { sellerName } = req.params;
+    const items = await Item.find({ 
+      sellerName: sellerName
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      message: `Fetched all items by seller: ${sellerName}`,
+      items
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching items by seller',
+      error: error.message
+    });
+  }
+};
+
+// Get item by ID
+exports.getItemById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await Item.findById(id);
+    
+    if (!item) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Item not found" 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      item
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: "Error fetching Item details", 
+      error: error.message 
+    });
+  }
+};
+
+// Approve an item
+exports.approveItem = async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Item not found' 
+      });
+    }
+    
+    item.status = 'approved';
+    item.approvedAt = new Date();
+    await item.save();
+    
+    res.json({
+      success: true,
+      message: 'Item approved successfully',
+      item
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+};
+
+// Reject an item
+exports.rejectItem = async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Item not found' 
+      });
+    }
+    
+    item.status = 'rejected';
+    item.rejectedAt = new Date();
+    item.rejectionReason = req.body.rejectionReason;
+    await item.save();
+    
+    res.json({
+      success: true,
+      message: 'Item rejected successfully',
+      item
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+};
+
+// Delete an item
+exports.deleteItem = async (req, res) => {
+  try {
+    const item = await Item.findByIdAndDelete(req.params.id);
+    if (!item) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Item not found" 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Item deleted successfully'
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: err.message
+    });
+  }
+};
+
+// Update an item
+exports.updateItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Handle features and shippingInfo if they're strings
+    if (updateData.features && typeof updateData.features === 'string') {
+      updateData.features = JSON.parse(updateData.features);
+    }
+    if (updateData.shippingInfo && typeof updateData.shippingInfo === 'string') {
+      const shippingInfo = JSON.parse(updateData.shippingInfo);
+      updateData.shippingInfo = {
+        shippingMethod: shippingInfo.shippingMethod || 'standard',
+        shippingCost: shippingInfo.shippingCost,
+        estimatedDelivery: shippingInfo.estimatedDelivery
+      };
+    }
+
+    // Handle image upload
+    if (req.file) {
+      updateData.image = req.file.filename;
+    }
+
+    const item = await Item.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Item updated successfully",
+      item
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+
+// GET items by category
+exports.getItemsByCategory = async (req, res) => {
+  try {
+    const { categoryName } = req.params;
+    const items = await Item.find({ category: categoryName });
+
+    if (!items.length) {
+      return res.status(404).json({ message: 'No items found in this category' });
+    }
+
+    res.status(200).json(items);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const itemController = require('../controller/ItemController');
+// const multer = require('multer');
+// const path = require('path');
+// const fs = require('fs');
+
+// // Ensure uploads directory exists
+// const uploadDir = path.join(__dirname, '../uploads');
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir, { recursive: true });
+// }
+
+// // Basic multer configuration
+// const upload = multer({
+//   dest: uploadDir,
+//   limits: {
+//     fileSize: 5 * 1024 * 1024 // 5MB
+//   }
+// }).single('image');
+
+// Create a new auction item with debugging
+// router.post('/create', (req, res) => {
+//   console.log('Headers:', req.headers);
+//   console.log('Content-Type:', req.headers['content-type']);
+  
+//   upload(req, res, function(err) {
+//     if (err) {
+//       console.error('Upload error:', err);
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Upload error',
+//         error: err.message
+//       });
+//     }
+
+//     console.log('Request body:', req.body);
+//     console.log('File:', req.file);
+
+//     try {
+//       itemController.createItem(req, res);
+//     } catch (error) {
+//       console.error('Controller error:', error);
+//       res.status(500).json({
+//         success: false,
+//         message: 'Error processing request',
+//         error: error.message
+//       });
+//     }
+//   });
+// });
+
+router.post('/create', itemController.createItem);
+// Get all auction items
+router.get('/all', itemController.getAllAuction);
+
+
+router.get('/items/category/:categoryName', itemController.getItemsByCategory);
+
+// Get all approved auction items
+router.get('/approved', itemController.getAllApproveItem);
+
+// Get items by category
+router.get('/category/:category', itemController.getItemsByCategory);
+
+// Get items by seller
+router.get('/seller/:sellerName', itemController.getItemsBySeller);
+
+// Get item by ID
+router.get('/itemById/:id', itemController.getItemById);
+
+// Update an item
+router.put('/:id', (req, res) => {
+  upload(req, res, function(err) {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: 'Upload error',
+        error: err.message
+      });
+    }
+    itemController.updateItem(req, res);
+  });
+});
+
+// Delete an item
+router.delete('/:id', itemController.deleteItem);
+
+// Approve an item
+router.patch('/:id/approve', itemController.approveItem);
+
+// Reject an item
+router.patch('/:id/reject', itemController.rejectItem);
+
+module.exports = router;
