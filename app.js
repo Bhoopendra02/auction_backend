@@ -31,6 +31,9 @@ app.use(cors());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // app.use('/api', authRoutes);
+app.use("/",function(req,res){
+  res.json({server:"run successfully"})
+})
 
 app.use('/api', AuctionAuthRoutes);
 // app.use('/api', createAucRoutes);
